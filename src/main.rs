@@ -41,7 +41,7 @@ struct QueryArgs {
     #[arg(short, long, action = ArgAction::Append)]
     dataset: Vec<String>,
 
-    /// File to write annotation to (default is stdout)
+    /// JSON file to write annotation to (default is stdout)
     #[arg(short, long)]
     output: Option<String>,
 

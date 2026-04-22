@@ -1,20 +1,16 @@
 use rust_htslib::bcf::Read;
-use std::collections::HashMap;
 use std::process;
 
-use crate::models::{TagValue, Variant, VcfDataset};
-use crate::vcf::{extract_tags_from_record, get_header_info_tags, load_vcf};
+use crate::models::{Variant, VcfAnnotation, VcfDataset};
+use crate::vcf::{extract_tags_from_record, get_info_tags, load_vcf};
 
-pub fn annotate_variant(
-    variant: &Variant,
-    vcf_datasets: Vec<VcfDataset>,
-) -> HashMap<String, Vec<TagValue>> {
-    let mut annot_by_dataset: HashMap<String, Vec<TagValue>> = HashMap::new();
+pub fn annotate_variant(variant: &Variant, vcf_datasets: Vec<VcfDataset>) -> Vec<VcfAnnotation> {
+    let mut annotations: Vec<VcfAnnotation> = Vec::new();
     for dataset in vcf_datasets {
-        let mut vcf = load_vcf(dataset.file_path);
+        let mut vcf = load_vcf(&dataset.file_path);
         let vcf_header = vcf.header();
 
-        let info_tags = get_header_info_tags(vcf_header, dataset.clone().tags, dataset.file_path);
+        let info_tags = get_info_tags(vcf_header, dataset.clone().tags, &dataset.file_path);
 
         let rid = vcf_header.name2rid(variant.chromosome.as_bytes()).unwrap();
         match vcf.fetch(rid, variant.position, Some(variant.position)) {
@@ -37,10 +33,15 @@ pub fn annotate_variant(
                 && variant.ref_allele == ref_allele
                 && alt_alleles.contains(&variant.alt_allele)
             {
-                let tag_annotations = extract_tags_from_record(record, &info_tags);
-                annot_by_dataset.insert(dataset.get_dataset_name().to_string(), tag_annotations);
+                let tag_annotations = extract_tags_from_record(&record, &info_tags);
+                annotations.push(VcfAnnotation {
+                    dataset,
+                    record_id: String::from_utf8(record.id()).unwrap(),
+                    info_tags: tag_annotations,
+                });
+                break;
             }
         }
     }
-    annot_by_dataset
+    annotations
 }
