@@ -5,25 +5,25 @@ use rust_htslib::bcf::{
 use std::collections::HashSet;
 use std::process;
 
-use crate::models::{TagValue, TagValueType};
+use crate::models::{InfoTag, TagValueType};
 
-pub fn extract_tags_from_record(record: Record, info_tags: &Vec<String>) -> Vec<TagValue> {
-    let mut annotations: Vec<TagValue> = Vec::new();
+pub fn extract_tags_from_record(record: &Record, info_tags: &Vec<String>) -> Vec<InfoTag> {
+    let mut annotations: Vec<InfoTag> = Vec::new();
     for tag in info_tags {
         if let Ok(Some(values)) = record.info(tag.as_bytes()).string() {
             let decoded: Vec<&str> = values.iter().map(|x| str::from_utf8(x).unwrap()).collect();
-            annotations.push(TagValue {
-                tag: tag.clone(),
+            annotations.push(InfoTag {
+                name: tag.clone(),
                 value: TagValueType::Str(decoded.join(",")),
             });
         } else if let Ok(Some(values)) = record.info(tag.as_bytes()).integer() {
-            annotations.push(TagValue {
-                tag: tag.clone(),
+            annotations.push(InfoTag {
+                name: tag.clone(),
                 value: TagValueType::Integer(values[0]),
             });
         } else if let Ok(Some(values)) = record.info(tag.as_bytes()).float() {
-            annotations.push(TagValue {
-                tag: tag.clone(),
+            annotations.push(InfoTag {
+                name: tag.clone(),
                 value: TagValueType::Float(values[0]),
             });
         }
@@ -35,7 +35,7 @@ pub fn load_vcf(file_path: &str) -> IndexedReader {
     IndexedReader::from_path(file_path).expect("Failed to read VCF.")
 }
 
-pub fn get_header_info_tags(
+pub fn get_info_tags(
     header: &HeaderView,
     input_tags: Option<Vec<String>>,
     vcf_path: &str,

@@ -9,8 +9,8 @@ pub enum TagValueType {
 }
 
 #[derive(Clone, Debug)]
-pub struct TagValue {
-    pub tag: String,
+pub struct InfoTag {
+    pub name: String,
     pub value: TagValueType,
 }
 
@@ -43,15 +43,15 @@ impl<'a> Variant<'a> {
 }
 
 #[derive(Clone, Debug)]
-pub struct VcfDataset<'a> {
-    pub file_path: &'a str,
+pub struct VcfDataset {
+    pub file_path: String,
     pub tags: Option<Vec<String>>,
 }
 
-impl<'a> VcfDataset<'a> {
-    pub fn new(dataset: &'a String) -> Self {
+impl VcfDataset {
+    pub fn new(dataset: &str) -> Self {
         let parsed: Vec<&str> = dataset.split(',').collect();
-        let file_path = parsed[0];
+        let file_path = parsed[0].to_string();
         let tags = if parsed.len() > 1 {
             Some(parsed[1].split('/').map(String::from).collect())
         } else {
@@ -60,7 +60,7 @@ impl<'a> VcfDataset<'a> {
         Self { file_path, tags }
     }
 
-    pub fn get_dataset_name(&self) -> &'a str {
+    pub fn get_dataset_name(&self) -> &str {
         let extensions = VCF_FILE_EXTENSIONS;
         let mut basename: &str = self.file_path.split('/').last().unwrap();
         for ext in extensions {
@@ -70,4 +70,11 @@ impl<'a> VcfDataset<'a> {
         }
         basename
     }
+}
+
+#[derive(Clone, Debug)]
+pub struct VcfAnnotation {
+    pub dataset: VcfDataset,
+    pub record_id: String,
+    pub info_tags: Vec<InfoTag>,
 }
