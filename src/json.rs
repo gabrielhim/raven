@@ -1,7 +1,6 @@
 use serde_json::{self, Value, json};
-use std::fs::{self, File, OpenOptions};
+use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Write};
-use std::process;
 
 use crate::models::{AnnotationRecord, TagValueType, Variant};
 
@@ -28,18 +27,9 @@ pub fn format_variant_json(
     json!({*variant.variant_str: dataset_map})
 }
 
-pub fn write_json_output(
-    contents: &[Value],
-    output: &Option<String>,
-    overwrite: bool,
-    append: bool,
-) {
+pub fn write_json_output(contents: &[Value], output: &Option<String>, append: bool) {
     match output {
         Some(o) => {
-            if !overwrite && !append && fs::exists(o).unwrap() {
-                eprintln!("File {} already exists. Enable the overwrite option.", o);
-                process::exit(1);
-            };
             let out_file = if append {
                 OpenOptions::new()
                     .create(true)

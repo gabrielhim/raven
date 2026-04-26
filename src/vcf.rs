@@ -32,6 +32,10 @@ pub fn extract_tags_from_record(record: &Record, info_tags: &Vec<String>) -> Vec
 }
 
 pub fn load_vcf(file_path: &str) -> IndexedReader {
+    if file_path.ends_with(".vcf") {
+        eprintln!("File '{}' must be compressed and indexed.", file_path);
+        process::exit(1);
+    }
     IndexedReader::from_path(file_path).expect("Failed to read VCF.")
 }
 
@@ -61,7 +65,11 @@ pub fn get_info_tag_names(
                 .filter(|t| !all_tags_set.contains(t))
                 .collect();
             if !diff.is_empty() {
-                eprintln!("INFO tags not present in {}: {:?}", vcf_path, diff);
+                eprintln!(
+                    "INFO tags not present in '{}': {}",
+                    vcf_path,
+                    diff.join(", ")
+                );
                 process::exit(1);
             }
             x.to_vec()
