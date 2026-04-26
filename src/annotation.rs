@@ -3,10 +3,11 @@ use rust_htslib::bcf::{
     header::{HeaderRecord, HeaderView},
 };
 use rust_htslib::errors::Error::GenomicSeek;
+use serde_json::Value;
 use std::collections::HashMap;
 
+use crate::json::{format_variant_json, write_json_output};
 use crate::models::{AnnotationRecord, Variant, VcfDataset};
-use crate::output::{format_variant_json, write_json_output};
 use crate::vcf::{extract_tags_from_record, load_vcf};
 
 fn extract_alleles(record: &Record) -> Vec<String> {
@@ -73,12 +74,7 @@ pub fn annotate_single_variant(
     annotation_records
 }
 
-pub fn annotate_vcf(
-    input_reader: &mut IndexedReader,
-    vcfs: &Vec<VcfDataset>,
-    output: String,
-    overwrite: bool,
-) {
+pub fn annotate_vcf(input_reader: &mut IndexedReader, vcfs: &Vec<VcfDataset>, output: String) {
     let mut vcf_readers: Vec<(&VcfDataset, IndexedReader)> = vcfs
         .iter()
         .map(|vcf| (vcf, load_vcf(&vcf.file_path)))
@@ -145,6 +141,8 @@ pub fn annotate_vcf(
             },
         }
 
+        let mut annotated_variants: Vec<Value> = Vec::new();
+
         for vcf_record in input_reader.records() {
             let record = vcf_record.expect("Failed to read sample VCF record.");
             let position = record.pos();
@@ -168,9 +166,13 @@ pub fn annotate_vcf(
                 }
 
                 let formatted_json = format_variant_json(&variant, annotation_records);
-                write_json_output(&[formatted_json], &output_file, overwrite, append);
-                append = true;
+                annotated_variants.push(formatted_json);
             }
+        }
+
+        if !annotated_variants.is_empty() {
+            write_json_output(&annotated_variants, &output_file, append);
+            append = true;
         }
     }
 }
