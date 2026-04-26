@@ -35,10 +35,10 @@ pub fn load_vcf(file_path: &str) -> IndexedReader {
     IndexedReader::from_path(file_path).expect("Failed to read VCF.")
 }
 
-pub fn get_info_tags(
+pub fn get_info_tag_names(
     header: &HeaderView,
-    input_tags: Option<Vec<String>>,
     vcf_path: &str,
+    input_tags: Option<Vec<String>>,
 ) -> Vec<String> {
     let all_tags: Vec<String> = header
         .header_records()
@@ -64,7 +64,7 @@ pub fn get_info_tags(
                 eprintln!("INFO tags not present in {}: {:?}", vcf_path, diff);
                 process::exit(1);
             }
-            x
+            x.to_vec()
         }
         None => all_tags,
     }

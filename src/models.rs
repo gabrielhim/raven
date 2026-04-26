@@ -1,4 +1,7 @@
+use rust_htslib::bcf::Read;
+
 use crate::contants::VCF_FILE_EXTENSIONS;
+use crate::vcf::{get_info_tag_names, load_vcf};
 use std::process;
 
 #[derive(Clone, Debug)]
@@ -15,17 +18,17 @@ pub struct InfoTag {
 }
 
 #[derive(Clone, Debug)]
-pub struct Variant<'a> {
-    pub chromosome: &'a str,
+pub struct Variant {
+    pub chromosome: String,
     pub position: u64,
-    pub ref_allele: &'a str,
-    pub alt_allele: &'a str,
-    pub variant_str: &'a str,
+    pub ref_allele: String,
+    pub alt_allele: String,
+    pub variant_str: String,
 }
 
-impl<'a> Variant<'a> {
-    pub fn new(variant_str: &'a str) -> Self {
-        let var_split: Vec<&str> = variant_str.trim().split(":").collect();
+impl Variant {
+    pub fn new(variant_str: String) -> Self {
+        let var_split: Vec<String> = variant_str.trim().split(":").map(String::from).collect();
         assert_eq!(var_split.len(), 4, "Specify variant as CHROM:POS:REF:ALT.");
 
         let position: u64 = var_split[1].parse().unwrap_or_else(|_| {
@@ -33,10 +36,10 @@ impl<'a> Variant<'a> {
             process::exit(1);
         });
         Self {
-            chromosome: var_split[0],
+            chromosome: var_split[0].clone(),
             position: position - 1, // rust-htslib uses 0-based position
-            ref_allele: var_split[2],
-            alt_allele: var_split[3],
+            ref_allele: var_split[2].clone(),
+            alt_allele: var_split[3].clone(),
             variant_str,
         }
     }
@@ -45,36 +48,41 @@ impl<'a> Variant<'a> {
 #[derive(Clone, Debug)]
 pub struct VcfDataset {
     pub file_path: String,
-    pub tags: Option<Vec<String>>,
+    pub tag_names: Vec<String>,
 }
 
 impl VcfDataset {
     pub fn new(dataset: &str) -> Self {
         let parsed: Vec<&str> = dataset.split(',').collect();
         let file_path = parsed[0].to_string();
-        let tags = if parsed.len() > 1 {
-            Some(parsed[1].split('/').map(String::from).collect())
+        let reader = load_vcf(&file_path);
+        let vcf_header = reader.header();
+        let tag_names = if parsed.len() > 1 {
+            let tags = Some(parsed[1].split('/').map(String::from).collect());
+            get_info_tag_names(&vcf_header, &file_path, tags)
         } else {
-            None
+            get_info_tag_names(&vcf_header, &file_path, None)
         };
-        Self { file_path, tags }
+        drop(reader);
+        Self {
+            file_path,
+            tag_names,
+        }
     }
 
-    pub fn get_dataset_name(&self) -> &str {
-        let extensions = VCF_FILE_EXTENSIONS;
-        let mut basename: &str = self.file_path.split('/').last().unwrap();
-        for ext in extensions {
+    pub fn get_dataset_name(&self) -> String {
+        let mut basename = self.file_path.split('/').last().unwrap();
+        for ext in VCF_FILE_EXTENSIONS {
             if let Some(x) = basename.strip_suffix(ext) {
                 basename = x;
             }
         }
-        basename
+        basename.to_string()
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct VcfAnnotation {
-    pub dataset: VcfDataset,
+pub struct AnnotationRecord {
     pub record_id: String,
     pub info_tags: Vec<InfoTag>,
 }
