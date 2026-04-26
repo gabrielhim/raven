@@ -13,10 +13,10 @@ use std::time::Instant;
 use vcf::load_vcf;
 
 fn check_if_output_exists(output: &str, overwrite: bool) {
-    if !overwrite && fs::exists(&output).unwrap() {
+    if !overwrite && fs::exists(output).unwrap() {
         eprintln!(
             "File '{}' already exists. Enable the overwrite option.",
-            &output
+            output
         );
         process::exit(1);
     };
