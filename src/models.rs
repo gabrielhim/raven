@@ -1,7 +1,7 @@
-use rust_htslib::bcf::Read;
+use rust_htslib::bcf::{Read, Reader};
 
 use crate::contants::VCF_FILE_EXTENSIONS;
-use crate::vcf::{get_info_tag_names, load_vcf};
+use crate::vcf::get_info_tag_names;
 use std::process;
 
 #[derive(Clone, Debug)]
@@ -55,13 +55,13 @@ impl VcfDataset {
     pub fn new(dataset: &str) -> Self {
         let parsed: Vec<&str> = dataset.split(',').collect();
         let file_path = parsed[0].to_string();
-        let reader = load_vcf(&file_path);
+        let reader = Reader::from_path(&file_path).unwrap();
         let vcf_header = reader.header();
-        let tag_names = if parsed.len() > 1 {
+        let tag_names = if parsed.len() == 1 {
+            get_info_tag_names(&vcf_header, &file_path, None)
+        } else {
             let tags = Some(parsed[1].split('/').map(String::from).collect());
             get_info_tag_names(&vcf_header, &file_path, tags)
-        } else {
-            get_info_tag_names(&vcf_header, &file_path, None)
         };
         drop(reader);
         Self {

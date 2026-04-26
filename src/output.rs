@@ -37,7 +37,7 @@ pub fn write_json_output(
     match output {
         Some(o) => {
             if !overwrite && !append && fs::exists(o).unwrap() {
-                eprintln!("File {} already exists. Enable the overwrite option.", o);
+                eprintln!("File '{}' already exists. Enable the overwrite option.", o);
                 process::exit(1);
             };
             let out_file = if append {
