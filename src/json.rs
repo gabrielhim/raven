@@ -2,14 +2,11 @@ use serde_json::{self, Value, json};
 use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Write};
 
-use crate::models::{AnnotationRecord, TagValueType, Variant};
+use crate::models::{AnnotatedVariant, TagValueType, Variant};
 
-pub fn format_variant_json(
-    variant: &Variant,
-    annotation_records: Vec<(String, AnnotationRecord)>,
-) -> Value {
+pub fn format_variant_json(variant: &Variant, annotated: AnnotatedVariant) -> Value {
     let mut dataset_map = serde_json::Map::new();
-    for (name, record) in annotation_records {
+    for (name, record) in annotated.annotations {
         let mut tags_map = serde_json::Map::new();
         for tag_annot in record.info_tags {
             let value = match &tag_annot.value {
@@ -24,6 +21,12 @@ pub fn format_variant_json(
             json!({"id": Value::String(record.record_id), "tags": Value::Object(tags_map)}),
         );
     }
+    if let Some(_) = annotated.input_record {
+        dataset_map.insert(
+            String::from("record"),
+            Value::String(annotated.input_record.unwrap()),
+        );
+    };
     json!({*variant.variant_str: dataset_map})
 }
 
