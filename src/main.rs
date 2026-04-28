@@ -40,6 +40,10 @@ struct AnnotateArgs {
     #[arg(short, long, action = ArgAction::Append)]
     vcf: Vec<String>,
 
+    /// Keep original VCF records in the JSON output
+    #[arg(short, long)]
+    keep_records: bool,
+
     /// JSON-lines or VCF file to write annotation to
     #[arg(short, long)]
     output: String,
@@ -84,9 +88,13 @@ fn main() {
     let args = Args::parse();
 
     match args.subcmd {
-        Subcmd::Annotate(args) => {
-            annotate_variants(args.input, args.vcf, args.output, args.overwrite)
-        }
+        Subcmd::Annotate(args) => annotate_variants(
+            args.input,
+            args.vcf,
+            args.keep_records,
+            args.output,
+            args.overwrite,
+        ),
         Subcmd::Query(args) => query_variant(args.input, args.vcf, args.output, args.overwrite),
     }
 }

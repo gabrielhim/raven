@@ -7,7 +7,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 use crate::json::{format_variant_json, write_json_output};
-use crate::models::{AnnotationRecord, Variant, VcfDataset};
+use crate::models::{AnnotatedVariant, AnnotationRecord, Variant, VcfDataset};
 use crate::vcf::{extract_tags_from_record, load_vcf};
 
 fn extract_alleles(record: &Record) -> Vec<String> {
@@ -28,10 +28,7 @@ fn extract_contigs(header_view: &HeaderView) -> Vec<String> {
     contigs
 }
 
-pub fn annotate_single_variant(
-    variant: &Variant,
-    vcfs: &Vec<VcfDataset>,
-) -> Vec<(String, AnnotationRecord)> {
+pub fn annotate_single_variant(variant: &Variant, vcfs: &Vec<VcfDataset>) -> AnnotatedVariant {
     let mut annotation_records: Vec<(String, AnnotationRecord)> = Vec::new();
     for vcf in vcfs {
         let mut reader = load_vcf(&vcf.file_path);
@@ -71,10 +68,19 @@ pub fn annotate_single_variant(
             }
         }
     }
-    annotation_records
+
+    AnnotatedVariant {
+        input_record: None,
+        annotations: annotation_records,
+    }
 }
 
-pub fn annotate_vcf(input_reader: &mut IndexedReader, vcfs: &Vec<VcfDataset>, output: String) {
+pub fn annotate_vcf(
+    input_reader: &mut IndexedReader,
+    vcfs: &Vec<VcfDataset>,
+    keep_records: bool,
+    output: String,
+) {
     let mut vcf_readers: Vec<(&VcfDataset, IndexedReader)> = vcfs
         .iter()
         .map(|vcf| (vcf, load_vcf(&vcf.file_path)))
@@ -145,6 +151,11 @@ pub fn annotate_vcf(input_reader: &mut IndexedReader, vcfs: &Vec<VcfDataset>, ou
 
         for vcf_record in input_reader.records() {
             let record = vcf_record.expect("Failed to read sample VCF record.");
+            let record_str: Option<String> = if keep_records {
+                record.to_vcf_string().ok()
+            } else {
+                None
+            };
             let position = record.pos();
             let alleles = extract_alleles(&record);
             let ref_allele = alleles[0].clone();
@@ -160,19 +171,21 @@ pub fn annotate_vcf(input_reader: &mut IndexedReader, vcfs: &Vec<VcfDataset>, ou
                         variant.alt_allele.clone(),
                     );
                     if records_map.contains_key(&record_key) {
-                        let record = records_map.get(&record_key).unwrap();
-                        annotation_records.push((vcf_basename.clone(), record.clone()));
+                        let dataset_record = records_map.get(&record_key).unwrap();
+                        annotation_records.push((vcf_basename.clone(), dataset_record.clone()));
                     }
                 }
 
-                let formatted_json = format_variant_json(&variant, annotation_records);
+                let annotated_variant = AnnotatedVariant {
+                    input_record: record_str.clone(),
+                    annotations: annotation_records,
+                };
+                let formatted_json = format_variant_json(&variant, annotated_variant);
                 annotated_variants.push(formatted_json);
             }
         }
 
-        if !annotated_variants.is_empty() {
-            write_json_output(&annotated_variants, &output_file, append);
-            append = true;
-        }
+        write_json_output(&annotated_variants, &output_file, append);
+        append = true;
     }
 }

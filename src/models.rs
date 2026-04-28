@@ -86,3 +86,9 @@ pub struct AnnotationRecord {
     pub record_id: String,
     pub info_tags: Vec<InfoTag>,
 }
+
+#[derive(Debug)]
+pub struct AnnotatedVariant {
+    pub input_record: Option<String>,
+    pub annotations: Vec<(String, AnnotationRecord)>,
+}
