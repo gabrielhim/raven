@@ -1,13 +1,10 @@
-use rust_htslib::bcf::{
-    IndexedReader, Read, Record,
-    header::{HeaderRecord, HeaderView},
-};
+use rust_htslib::bcf::{IndexedReader, Read, Record};
 use rust_htslib::errors::Error::GenomicSeek;
 use serde_json::Value;
 
 use crate::json::{format_variant_json, write_json_output};
 use crate::models::{AnnotatedVariant, AnnotationRecord, Variant, VcfDataset};
-use crate::vcf::{extract_tags_from_record, load_vcf};
+use crate::vcf::{extract_contigs, extract_tags_from_record, load_vcf};
 
 fn extract_alleles(record: &Record) -> Vec<String> {
     record
@@ -15,16 +12,6 @@ fn extract_alleles(record: &Record) -> Vec<String> {
         .iter()
         .map(|x| String::from_utf8(x.to_vec()).unwrap())
         .collect()
-}
-
-fn extract_contigs(header_view: &HeaderView) -> Vec<String> {
-    let mut contigs = Vec::new();
-    for record in header_view.header_records() {
-        if let HeaderRecord::Contig { key: _, values } = record {
-            contigs.push(values.get("ID").unwrap().to_string())
-        }
-    }
-    contigs
 }
 
 fn move_to_next_record(reader: &mut IndexedReader) -> Option<Record> {
@@ -129,29 +116,24 @@ pub fn annotate_vcf(
             };
             let alleles = extract_alleles(&record);
             let ref_allele = &alleles[0];
-            for alt in &alleles[1..] {
+            let alt_alleles = &alleles[1..];
+            for alt in alt_alleles {
                 let variant_str = format!("{}:{}:{}:{}", chrom, record.pos() + 1, ref_allele, alt);
                 let variant = Variant::new(variant_str);
 
                 let mut annotation_records: Vec<(String, AnnotationRecord)> = Vec::new();
 
-                for (vcf_dataset, reader, curr_record) in vcf_readers.iter_mut() {
+                for (vcf_dataset, reader, ds_record_pointer) in vcf_readers.iter_mut() {
                     loop {
-                        match curr_record {
+                        match ds_record_pointer {
                             Some(r) => {
-                                let curr_chrom = {
-                                    let curr_rid = r.rid().unwrap();
-                                    String::from_utf8(
-                                        reader.header().rid2name(curr_rid).unwrap().to_vec(),
-                                    )
-                                    .unwrap()
-                                };
-                                if curr_chrom == chrom && r.pos() == record.pos() {
-                                    let curr_alleles = extract_alleles(&r);
-                                    let curr_ref_allele = &curr_alleles[0];
-                                    let curr_alt_alleles = &curr_alleles[1..];
-                                    if curr_ref_allele == &variant.ref_allele
-                                        && curr_alt_alleles.contains(&variant.alt_allele)
+                                let ds_rid = r.rid().unwrap();
+                                if ds_rid == rid && r.pos() == record.pos() {
+                                    let ds_alleles = extract_alleles(&r);
+                                    let ds_ref_allele = &ds_alleles[0];
+                                    let ds_alt_alleles = &ds_alleles[1..];
+                                    if ds_ref_allele == &variant.ref_allele
+                                        && ds_alt_alleles.contains(&variant.alt_allele)
                                     {
                                         let annotation_record = AnnotationRecord {
                                             record_id: String::from_utf8(r.id()).unwrap(),
@@ -164,16 +146,13 @@ pub fn annotate_vcf(
                                             vcf_dataset.get_dataset_name(),
                                             annotation_record,
                                         ));
-                                        *curr_record = move_to_next_record(reader);
                                         break;
-                                    } else {
-                                        *curr_record = move_to_next_record(reader);
-                                    };
-                                } else if r.pos() > record.pos() {
+                                    }
+                                } else if (ds_rid == rid && r.pos() > record.pos()) || ds_rid > rid
+                                {
                                     break;
-                                } else {
-                                    *curr_record = move_to_next_record(reader);
                                 }
+                                *ds_record_pointer = move_to_next_record(reader);
                             }
                             None => break,
                         }

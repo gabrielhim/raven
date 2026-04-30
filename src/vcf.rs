@@ -1,11 +1,21 @@
 use rust_htslib::bcf::{
     IndexedReader, Record,
-    header::{HeaderRecord::Info, HeaderView},
+    header::{HeaderRecord, HeaderView},
 };
 use std::collections::HashSet;
 use std::process;
 
 use crate::models::{InfoTag, TagValueType};
+
+pub fn extract_contigs(header_view: &HeaderView) -> Vec<String> {
+    let mut contigs = Vec::new();
+    for record in header_view.header_records() {
+        if let HeaderRecord::Contig { key: _, values } = record {
+            contigs.push(values.get("ID").unwrap().to_string())
+        }
+    }
+    contigs
+}
 
 pub fn extract_tags_from_record(record: &Record, info_tags: &Vec<String>) -> Vec<InfoTag> {
     let mut annotations: Vec<InfoTag> = Vec::new();
@@ -48,7 +58,7 @@ pub fn get_info_tag_names(
         .header_records()
         .iter()
         .filter_map(|x| {
-            if let Info { values, .. } = x {
+            if let HeaderRecord::Info { values, .. } = x {
                 values.get("ID").cloned()
             } else {
                 None
