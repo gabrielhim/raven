@@ -2,10 +2,25 @@ use rust_htslib::bcf::{
     IndexedReader, Record,
     header::{HeaderRecord, HeaderView},
 };
+use std::cmp;
 use std::collections::HashSet;
 use std::process;
 
 use crate::models::{InfoTag, TagValueType};
+
+pub fn check_if_chromosomes_match(header_view1: &HeaderView, header_view2: &HeaderView) -> bool {
+    let contigs1 = extract_contigs(header_view1);
+    let contigs2 = extract_contigs(header_view2);
+    let smaller_len = cmp::min(contigs1.len(), contigs2.len());
+
+    // Check the first 25 chromosomes, corresponding to 1-22, X, Y and MT. If any VCF
+    // contains less than that (e.g. lacking MT), compare based on the smaller list.
+    if smaller_len >= 25 {
+        contigs1[0..25] == contigs2[0..25]
+    } else {
+        contigs1[0..smaller_len] == contigs2[0..smaller_len]
+    }
+}
 
 pub fn extract_contigs(header_view: &HeaderView) -> Vec<String> {
     let mut contigs = Vec::new();
