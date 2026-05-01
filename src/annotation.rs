@@ -1,6 +1,7 @@
 use rust_htslib::bcf::{IndexedReader, Read, Record};
 use rust_htslib::errors::Error::GenomicSeek;
 use serde_json::Value;
+use std::collections::HashMap;
 
 use crate::json::{format_variant_json, write_json_output};
 use crate::models::{AnnotatedVariant, AnnotationRecord, Variant, VcfDataset};
@@ -106,6 +107,8 @@ pub fn annotate_vcf(
         }
 
         let mut annotated_variants: Vec<Value> = Vec::new();
+        let mut position_records: Vec<(String, HashMap<String, AnnotationRecord>)> = Vec::new();
+        let mut position: i64 = 0;
 
         for vcf_record in input_reader.records() {
             let record = vcf_record.expect("Failed to read sample VCF record.");
@@ -116,14 +119,12 @@ pub fn annotate_vcf(
             };
             let alleles = extract_alleles(&record);
             let ref_allele = &alleles[0];
-            let alt_alleles = &alleles[1..];
-            for alt in alt_alleles {
-                let variant_str = format!("{}:{}:{}:{}", chrom, record.pos() + 1, ref_allele, alt);
-                let variant = Variant::new(variant_str);
 
-                let mut annotation_records: Vec<(String, AnnotationRecord)> = Vec::new();
-
+            if record.pos() != position {
+                position = record.pos();
+                position_records.clear();
                 for (vcf_dataset, reader, ds_record_pointer) in vcf_readers.iter_mut() {
+                    let mut dataset_variants: HashMap<String, AnnotationRecord> = HashMap::new();
                     loop {
                         match ds_record_pointer {
                             Some(r) => {
@@ -131,31 +132,42 @@ pub fn annotate_vcf(
                                 if ds_rid == rid && r.pos() == record.pos() {
                                     let ds_alleles = extract_alleles(&r);
                                     let ds_ref_allele = &ds_alleles[0];
-                                    let ds_alt_alleles = &ds_alleles[1..];
-                                    if ds_ref_allele == &variant.ref_allele
-                                        && ds_alt_alleles.contains(&variant.alt_allele)
-                                    {
-                                        let annotation_record = AnnotationRecord {
-                                            record_id: String::from_utf8(r.id()).unwrap(),
-                                            info_tags: extract_tags_from_record(
-                                                &r,
-                                                &vcf_dataset.tag_names,
-                                            ),
-                                        };
-                                        annotation_records.push((
-                                            vcf_dataset.get_dataset_name(),
-                                            annotation_record,
-                                        ));
-                                        break;
+                                    if ds_ref_allele == ref_allele {
+                                        for ds_alt in &ds_alleles[1..] {
+                                            let annotation_record = AnnotationRecord {
+                                                record_id: String::from_utf8(r.id()).unwrap(),
+                                                info_tags: extract_tags_from_record(
+                                                    &r,
+                                                    &vcf_dataset.tag_names,
+                                                ),
+                                            };
+                                            dataset_variants
+                                                .insert(ds_alt.clone(), annotation_record);
+                                        }
                                     }
+                                    *ds_record_pointer = move_to_next_record(reader);
                                 } else if (ds_rid == rid && r.pos() > record.pos()) || ds_rid > rid
                                 {
                                     break;
+                                } else {
+                                    *ds_record_pointer = move_to_next_record(reader);
                                 }
-                                *ds_record_pointer = move_to_next_record(reader);
                             }
                             None => break,
                         }
+                    }
+                    position_records.push((vcf_dataset.get_dataset_name(), dataset_variants));
+                }
+            }
+
+            for alt in &alleles[1..] {
+                let variant_str = format!("{}:{}:{}:{}", chrom, record.pos() + 1, ref_allele, alt);
+                let variant = Variant::new(variant_str);
+
+                let mut annotation_records: Vec<(String, AnnotationRecord)> = Vec::new();
+                for (dataset_name, dataset_variants) in &position_records {
+                    if let Some(annotation_record) = dataset_variants.get(alt.as_str()) {
+                        annotation_records.push((dataset_name.clone(), annotation_record.clone()));
                     }
                 }
 
