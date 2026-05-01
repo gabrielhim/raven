@@ -1,0 +1,24 @@
+name: Build binary asset
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build
+        run: cargo build --release
+      - name: Publish
+        uses: softprops/action-gh-release@v2
+        with:
+          files: target/release/raven
