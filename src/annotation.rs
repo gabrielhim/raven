@@ -112,7 +112,8 @@ pub fn annotate_vcf(
         }
 
         let mut annotated_variants: Vec<Value> = Vec::new();
-        let mut position_records: Vec<(String, HashMap<String, AnnotationRecord>)> = Vec::new();
+        let mut position_records: Vec<(String, HashMap<(String, String), AnnotationRecord>)> =
+            Vec::new();
         let mut position: i64 = 0;
 
         for vcf_record in input_reader.records() {
@@ -129,7 +130,8 @@ pub fn annotate_vcf(
                 position = record.pos();
                 position_records.clear();
                 for (vcf_dataset, reader, ds_record_pointer) in vcf_readers.iter_mut() {
-                    let mut dataset_records: HashMap<String, AnnotationRecord> = HashMap::new();
+                    let mut dataset_records: HashMap<(String, String), AnnotationRecord> =
+                        HashMap::new();
                     loop {
                         match ds_record_pointer {
                             Some(r) => {
@@ -137,18 +139,18 @@ pub fn annotate_vcf(
                                 if ds_rid == rid && r.pos() == record.pos() {
                                     let ds_alleles = extract_alleles(&r);
                                     let ds_ref_allele = &ds_alleles[0];
-                                    if ds_ref_allele == ref_allele {
-                                        for ds_alt in &ds_alleles[1..] {
-                                            let annotation_record = AnnotationRecord {
-                                                record_id: String::from_utf8(r.id()).unwrap(),
-                                                info_tags: extract_tags_from_record(
-                                                    &r,
-                                                    &vcf_dataset.tag_names,
-                                                ),
-                                            };
-                                            dataset_records
-                                                .insert(ds_alt.clone(), annotation_record);
-                                        }
+                                    for ds_alt in &ds_alleles[1..] {
+                                        let annotation_record = AnnotationRecord {
+                                            record_id: String::from_utf8(r.id()).unwrap(),
+                                            info_tags: extract_tags_from_record(
+                                                &r,
+                                                &vcf_dataset.tag_names,
+                                            ),
+                                        };
+                                        dataset_records.insert(
+                                            (ds_ref_allele.clone(), ds_alt.clone()),
+                                            annotation_record,
+                                        );
                                     }
                                     *ds_record_pointer = move_to_next_record(reader);
                                 } else if (ds_rid == rid && r.pos() > record.pos()) || ds_rid > rid
@@ -171,8 +173,9 @@ pub fn annotate_vcf(
 
                 let mut annotation_records: Vec<(String, AnnotationRecord)> = Vec::new();
                 for (dataset_name, dataset_records) in &position_records {
-                    if let Some(annotation_record) = dataset_records.get(alt.as_str()) {
-                        annotation_records.push((dataset_name.clone(), annotation_record.clone()));
+                    let maybe_annotation = dataset_records.get(&(ref_allele.clone(), alt.clone()));
+                    if let Some(a) = maybe_annotation {
+                        annotation_records.push((dataset_name.clone(), a.clone()));
                     }
                 }
 
