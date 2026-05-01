@@ -2,10 +2,11 @@ use rust_htslib::bcf::{IndexedReader, Read, Record};
 use rust_htslib::errors::Error::GenomicSeek;
 use serde_json::Value;
 use std::collections::HashMap;
+use std::process;
 
 use crate::json::{format_variant_json, write_json_output};
 use crate::models::{AnnotatedVariant, AnnotationRecord, Variant, VcfDataset};
-use crate::vcf::{extract_contigs, extract_tags_from_record, load_vcf};
+use crate::vcf::{check_if_chromosomes_match, extract_contigs, extract_tags_from_record, load_vcf};
 
 fn extract_alleles(record: &Record) -> Vec<String> {
     record
@@ -76,14 +77,18 @@ pub fn annotate_vcf(
     keep_records: bool,
     output: String,
 ) {
-    let mut vcf_readers: Vec<(&VcfDataset, IndexedReader, Option<Record>)> = vcfs
-        .iter()
-        .map(|vcf| {
-            let mut reader = load_vcf(&vcf.file_path);
-            let first_record = move_to_next_record(&mut reader);
-            (vcf, reader, first_record)
-        })
-        .collect();
+    let mut vcf_readers: Vec<(&VcfDataset, IndexedReader, Option<Record>)> = Vec::new();
+    for vcf in vcfs {
+        let mut reader = load_vcf(&vcf.file_path);
+        if !check_if_chromosomes_match(input_reader.header(), reader.header()) {
+            eprintln!("Chromosomes from '{}' and input VCF don't match.", {
+                &vcf.file_path
+            });
+            process::exit(1);
+        };
+        let first_record = move_to_next_record(&mut reader);
+        vcf_readers.push((vcf, reader, first_record));
+    }
 
     let chromosomes = extract_contigs(input_reader.header());
 
@@ -124,7 +129,7 @@ pub fn annotate_vcf(
                 position = record.pos();
                 position_records.clear();
                 for (vcf_dataset, reader, ds_record_pointer) in vcf_readers.iter_mut() {
-                    let mut dataset_variants: HashMap<String, AnnotationRecord> = HashMap::new();
+                    let mut dataset_records: HashMap<String, AnnotationRecord> = HashMap::new();
                     loop {
                         match ds_record_pointer {
                             Some(r) => {
@@ -141,7 +146,7 @@ pub fn annotate_vcf(
                                                     &vcf_dataset.tag_names,
                                                 ),
                                             };
-                                            dataset_variants
+                                            dataset_records
                                                 .insert(ds_alt.clone(), annotation_record);
                                         }
                                     }
@@ -156,7 +161,7 @@ pub fn annotate_vcf(
                             None => break,
                         }
                     }
-                    position_records.push((vcf_dataset.get_dataset_name(), dataset_variants));
+                    position_records.push((vcf_dataset.get_dataset_name(), dataset_records));
                 }
             }
 
@@ -165,8 +170,8 @@ pub fn annotate_vcf(
                 let variant = Variant::new(variant_str);
 
                 let mut annotation_records: Vec<(String, AnnotationRecord)> = Vec::new();
-                for (dataset_name, dataset_variants) in &position_records {
-                    if let Some(annotation_record) = dataset_variants.get(alt.as_str()) {
+                for (dataset_name, dataset_records) in &position_records {
+                    if let Some(annotation_record) = dataset_records.get(alt.as_str()) {
                         annotation_records.push((dataset_name.clone(), annotation_record.clone()));
                     }
                 }
