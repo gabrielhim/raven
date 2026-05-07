@@ -38,9 +38,9 @@ raven annotate -i HG005_exome_20.vcf.gz -v clinvar_20.vcf.gz,ALLELEID/CLNHGVS/CL
 
 Output is written to a file in JSON-lines format:
 ```json
-{"20:76962:T:C":{"gnomad.exomes.r2.1.1.sites.20":{"id":"rs6111385","tags":{"AC":197171,"AF":0.7841730117797852,"AN":251438}}}}
-{"20:126310:ACC:A":{"clinvar_20":{"id":"402586","tags":{"ALLELEID":390451,"CLNHGVS":"NC_000020.10:g.126314_126315del","CLNREVSTAT":"criteria_provided,_single_submitter","CLNSIG":"Benign","GENEINFO":"DEFB126:81623"}},"gnomad.exomes.r2.1.1.sites.20":{"id":"rs111739970","tags":{"AC":137216,"AF":0.5522220134735107,"AN":248480}}}}
-{"20:138125:G:T":{}}
+{"alt":"C","annotations":{"gnomad.exomes.r2.1.1.sites.20":{"id":"rs6111385","tags":{"AC":197171,"AF":0.7841730117797852,"AN":251438}}},"chrom":"20","pos":76961,"ref":"T"}
+{"alt":"A","annotations":{"clinvar_20":{"id":"402586","tags":{"ALLELEID":390451,"CLNHGVS":"NC_000020.10:g.126314_126315del","CLNREVSTAT":"criteria_provided,_single_submitter","CLNSIG":"Benign","GENEINFO":"DEFB126:81623"}},"gnomad.exomes.r2.1.1.sites.20":{"id":"rs111739970","tags":{"AC":137216,"AF":0.5522220134735107,"AN":248480}}},"chrom":"20","pos":126309,"ref":"ACC"}
+{"alt":"T","annotations":{},"chrom":"20","pos":138124,"ref":"G"}
 ```
 
 Check `raven annotate --help` for other command options.
@@ -55,7 +55,8 @@ raven query -i 20:400365:A:G -v clinvar_20.vcf.gz,ALLELEID/CLNHGVS/CLNSIG/CLNREV
 If no output file is specified, `query` directs the output to stdout:
 ```
 {
-  "20:400365:A:G": {
+  "alt": "G",
+  "annotations": {
     "clinvar_20": {
       "id": "573181",
       "tags": {
@@ -74,6 +75,9 @@ If no output file is specified, `query` directs the output to stdout:
         "AN": 162560
       }
     }
-  }
+  },
+  "chrom": "20",
+  "pos": 400364,
+  "ref": "A"
 }
 ```
