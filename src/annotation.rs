@@ -168,8 +168,12 @@ pub fn annotate_vcf(
             }
 
             for alt in &alleles[1..] {
-                let variant_str = format!("{}:{}:{}:{}", chrom, record.pos() + 1, ref_allele, alt);
-                let variant = Variant::new(variant_str);
+                let variant = Variant {
+                    chromosome: chrom.clone(),
+                    position: record.pos() as u64,
+                    ref_allele: ref_allele.clone(),
+                    alt_allele: alt.clone(),
+                };
 
                 let mut annotation_records: Vec<(String, AnnotationRecord)> = Vec::new();
                 for (dataset_name, dataset_records) in &position_records {

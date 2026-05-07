@@ -27,7 +27,13 @@ pub fn format_variant_json(variant: &Variant, annotated: AnnotatedVariant) -> Va
             Value::String(annotated.input_record.unwrap()),
         );
     };
-    json!({*variant.variant_str: dataset_map})
+    json!({
+        "chrom": variant.chromosome,
+        "pos": variant.position,
+        "ref": variant.ref_allele,
+        "alt": variant.alt_allele,
+        "annotations": dataset_map
+    })
 }
 
 pub fn write_json_output(contents: &[Value], output: &Option<String>, append: bool) {

@@ -23,7 +23,6 @@ pub struct Variant {
     pub position: u64,
     pub ref_allele: String,
     pub alt_allele: String,
-    pub variant_str: String,
 }
 
 impl Variant {
@@ -40,7 +39,6 @@ impl Variant {
             position: position - 1, // rust-htslib uses 0-based position
             ref_allele: var_split[2].clone(),
             alt_allele: var_split[3].clone(),
-            variant_str,
         }
     }
 }
