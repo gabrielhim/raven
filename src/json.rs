@@ -6,9 +6,9 @@ use crate::models::{AnnotatedVariant, TagValueType, Variant};
 
 pub fn format_variant_json(variant: &Variant, annotated: AnnotatedVariant) -> Value {
     let mut dataset_map = serde_json::Map::new();
-    for (name, record) in annotated.annotations {
+    for (name, annot_record) in annotated.annotations {
         let mut tags_map = serde_json::Map::new();
-        for tag_annot in record.info_tags {
+        for tag_annot in annot_record.info_tags {
             let value = match &tag_annot.value {
                 TagValueType::Float(f) => json!(f),
                 TagValueType::Integer(i) => json!(i),
@@ -18,7 +18,7 @@ pub fn format_variant_json(variant: &Variant, annotated: AnnotatedVariant) -> Va
         }
         dataset_map.insert(
             name,
-            json!({"id": Value::String(record.record_id), "tags": Value::Object(tags_map)}),
+            json!({"id": Value::String(annot_record.record_id), "tags": Value::Object(tags_map)}),
         );
     }
     if let Some(_) = annotated.input_record {
@@ -29,7 +29,7 @@ pub fn format_variant_json(variant: &Variant, annotated: AnnotatedVariant) -> Va
     };
     json!({
         "chrom": variant.chromosome,
-        "pos": variant.position,
+        "pos": variant.position + 1,
         "ref": variant.ref_allele,
         "alt": variant.alt_allele,
         "annotations": dataset_map
