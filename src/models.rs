@@ -1,8 +1,15 @@
+use clap::ValueEnum;
 use rust_htslib::bcf::{Read, Reader};
 
-use crate::contants::VCF_FILE_EXTENSIONS;
+use crate::constants::VCF_FILE_EXTENSIONS;
 use crate::vcf::get_info_tag_names;
 use std::process;
+
+#[derive(Clone, Debug, ValueEnum)]
+pub enum OutputFormat {
+    Json,
+    Vcf,
+}
 
 #[derive(Clone, Debug)]
 pub enum TagValueType {
@@ -12,9 +19,21 @@ pub enum TagValueType {
 }
 
 #[derive(Clone, Debug)]
-pub struct InfoTag {
+pub struct InfoTagValue {
     pub name: String,
     pub value: TagValueType,
+}
+
+#[derive(Clone, Debug)]
+pub struct AnnotationRecord {
+    pub record_id: String,
+    pub info_tag_values: Vec<InfoTagValue>,
+}
+
+#[derive(Debug)]
+pub struct AnnotatedVariant {
+    pub input_record: Option<String>,
+    pub annotations: Vec<(String, AnnotationRecord)>,
 }
 
 #[derive(Clone, Debug)]
@@ -77,16 +96,4 @@ impl VcfDataset {
         }
         basename.to_string()
     }
-}
-
-#[derive(Clone, Debug)]
-pub struct AnnotationRecord {
-    pub record_id: String,
-    pub info_tags: Vec<InfoTag>,
-}
-
-#[derive(Debug)]
-pub struct AnnotatedVariant {
-    pub input_record: Option<String>,
-    pub annotations: Vec<(String, AnnotationRecord)>,
 }

@@ -1,12 +1,14 @@
 use rust_htslib::bcf::{IndexedReader, Read, Record};
 use rust_htslib::errors::Error::GenomicSeek;
 use serde_json::Value;
-use std::collections::HashMap;
-use std::process;
+use std::{collections::HashMap, process};
 
 use crate::json::{format_variant_json, write_json_output};
-use crate::models::{AnnotatedVariant, AnnotationRecord, Variant, VcfDataset};
-use crate::vcf::{check_if_chromosomes_match, extract_contigs, extract_tags_from_record, load_vcf};
+use crate::models::{AnnotatedVariant, AnnotationRecord, OutputFormat, Variant, VcfDataset};
+use crate::vcf::{
+    check_if_chromosomes_match, create_output_vcf, extract_contigs, extract_tags_from_record,
+    format_output_record, load_vcf,
+};
 
 fn extract_alleles(record: &Record) -> Vec<String> {
     record
@@ -24,7 +26,7 @@ fn move_to_next_record(reader: &mut IndexedReader) -> Option<Record> {
     }
 }
 
-pub fn annotate_single_variant(variant: &Variant, vcfs: &Vec<VcfDataset>) -> AnnotatedVariant {
+pub fn annotate_single_variant(variant: &Variant, vcfs: &Vec<VcfDataset>) -> Value {
     let mut annotation_records: Vec<(String, AnnotationRecord)> = Vec::new();
     for vcf in vcfs {
         let mut reader = load_vcf(&vcf.file_path);
@@ -52,12 +54,12 @@ pub fn annotate_single_variant(variant: &Variant, vcfs: &Vec<VcfDataset>) -> Ann
                 && ref_allele == &variant.ref_allele
                 && alt_alleles.contains(&variant.alt_allele)
             {
-                let info_tags = extract_tags_from_record(&record, &vcf.tag_names);
+                let info_tag_values = extract_tags_from_record(&record, &vcf.tag_names, false);
                 annotation_records.push((
                     vcf.get_dataset_name(),
                     AnnotationRecord {
                         record_id: String::from_utf8(record.id()).unwrap(),
-                        info_tags,
+                        info_tag_values,
                     },
                 ));
                 break;
@@ -65,10 +67,12 @@ pub fn annotate_single_variant(variant: &Variant, vcfs: &Vec<VcfDataset>) -> Ann
         }
     }
 
-    AnnotatedVariant {
+    let annotated_variant = AnnotatedVariant {
         input_record: None,
         annotations: annotation_records,
-    }
+    };
+
+    format_variant_json(&variant, annotated_variant)
 }
 
 pub fn annotate_vcf(
@@ -76,6 +80,7 @@ pub fn annotate_vcf(
     vcfs: &Vec<VcfDataset>,
     keep_records: bool,
     output: String,
+    output_format: OutputFormat,
 ) {
     let mut vcf_readers: Vec<(&VcfDataset, IndexedReader, Option<Record>)> = Vec::new();
     for vcf in vcfs {
@@ -89,6 +94,20 @@ pub fn annotate_vcf(
         let first_record = move_to_next_record(&mut reader);
         vcf_readers.push((vcf, reader, first_record));
     }
+
+    let mut output_vcf = match output_format {
+        OutputFormat::Vcf => {
+            let uncompressed = !output.ends_with(".gz");
+            let output_vcf = create_output_vcf(input_reader.header(), vcfs, &output, uncompressed);
+            Some(output_vcf)
+        }
+        _ => None,
+    };
+
+    let empty_str_if_missing = match output_format {
+        OutputFormat::Json => false,
+        OutputFormat::Vcf => true,
+    };
 
     let chromosomes = extract_contigs(input_reader.header());
 
@@ -111,7 +130,8 @@ pub fn annotate_vcf(
             },
         }
 
-        let mut annotated_variants: Vec<Value> = Vec::new();
+        let mut annotated_json_out: Vec<Value> = Vec::new();
+
         let mut position_records: Vec<(String, HashMap<(String, String), AnnotationRecord>)> =
             Vec::new();
         let mut position: i64 = 0;
@@ -142,9 +162,10 @@ pub fn annotate_vcf(
                                     for ds_alt in &ds_alleles[1..] {
                                         let annotation_record = AnnotationRecord {
                                             record_id: String::from_utf8(r.id()).unwrap(),
-                                            info_tags: extract_tags_from_record(
+                                            info_tag_values: extract_tags_from_record(
                                                 &r,
                                                 &vcf_dataset.tag_names,
+                                                empty_str_if_missing,
                                             ),
                                         };
                                         dataset_records.insert(
@@ -187,12 +208,27 @@ pub fn annotate_vcf(
                     input_record: record_str.clone(),
                     annotations: annotation_records,
                 };
-                let formatted_json = format_variant_json(&variant, annotated_variant);
-                annotated_variants.push(formatted_json);
+
+                match output_format {
+                    OutputFormat::Json => {
+                        let out_value = format_variant_json(&variant, annotated_variant);
+                        annotated_json_out.push(out_value);
+                    }
+                    OutputFormat::Vcf => {
+                        let out_record = format_output_record(
+                            &record,
+                            annotated_variant,
+                            &mut output_vcf.as_mut().unwrap(),
+                        );
+                        output_vcf.as_mut().unwrap().write(&out_record).unwrap();
+                    }
+                };
             }
         }
 
-        write_json_output(&annotated_variants, &output_file, append);
+        if annotated_json_out.len() > 0 {
+            write_json_output(&annotated_json_out, &output_file, append);
+        }
         append = true;
     }
 }

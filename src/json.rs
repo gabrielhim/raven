@@ -8,7 +8,7 @@ pub fn format_variant_json(variant: &Variant, annotated: AnnotatedVariant) -> Va
     let mut dataset_map = serde_json::Map::new();
     for (name, annot_record) in annotated.annotations {
         let mut tags_map = serde_json::Map::new();
-        for tag_annot in annot_record.info_tags {
+        for tag_annot in annot_record.info_tag_values {
             let value = match &tag_annot.value {
                 TagValueType::Float(f) => json!(f),
                 TagValueType::Integer(i) => json!(i),

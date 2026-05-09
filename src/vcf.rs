@@ -1,12 +1,13 @@
 use rust_htslib::bcf::{
-    IndexedReader, Record,
-    header::{HeaderRecord, HeaderView},
+    Format, IndexedReader, Record, Writer,
+    header::{Header, HeaderRecord, HeaderView},
 };
 use std::cmp;
 use std::collections::HashSet;
 use std::process;
 
-use crate::models::{InfoTag, TagValueType};
+use crate::constants::INFO_ANNOTATION_SEPARATOR;
+use crate::models::{AnnotatedVariant, InfoTagValue, TagValueType, VcfDataset};
 
 pub fn check_if_chromosomes_match(header_view1: &HeaderView, header_view2: &HeaderView) -> bool {
     let contigs1 = extract_contigs(header_view1);
@@ -32,24 +33,33 @@ pub fn extract_contigs(header_view: &HeaderView) -> Vec<String> {
     contigs
 }
 
-pub fn extract_tags_from_record(record: &Record, info_tags: &Vec<String>) -> Vec<InfoTag> {
-    let mut annotations: Vec<InfoTag> = Vec::new();
+pub fn extract_tags_from_record(
+    record: &Record,
+    info_tags: &Vec<String>,
+    empty_str_if_missing: bool,
+) -> Vec<InfoTagValue> {
+    let mut annotations: Vec<InfoTagValue> = Vec::new();
     for tag in info_tags {
         if let Ok(Some(values)) = record.info(tag.as_bytes()).string() {
             let decoded: Vec<&str> = values.iter().map(|x| str::from_utf8(x).unwrap()).collect();
-            annotations.push(InfoTag {
+            annotations.push(InfoTagValue {
                 name: tag.clone(),
                 value: TagValueType::Str(decoded.join(",")),
             });
         } else if let Ok(Some(values)) = record.info(tag.as_bytes()).integer() {
-            annotations.push(InfoTag {
+            annotations.push(InfoTagValue {
                 name: tag.clone(),
                 value: TagValueType::Integer(values[0]),
             });
         } else if let Ok(Some(values)) = record.info(tag.as_bytes()).float() {
-            annotations.push(InfoTag {
+            annotations.push(InfoTagValue {
                 name: tag.clone(),
                 value: TagValueType::Float(values[0]),
+            });
+        } else if empty_str_if_missing {
+            annotations.push(InfoTagValue {
+                name: tag.clone(),
+                value: TagValueType::Str("".to_string()),
             });
         }
     }
@@ -101,4 +111,50 @@ pub fn get_info_tag_names(
         }
         None => all_tags,
     }
+}
+
+pub fn create_output_vcf(
+    sample_header: &HeaderView,
+    vcfs: &Vec<VcfDataset>,
+    output: &String,
+    uncompressed: bool,
+) -> Writer {
+    let mut header = Header::from_template(sample_header);
+    for vcf in vcfs {
+        let header_row = format!(
+            "##INFO=<ID={},Number=1,Type=String,Description=\"{}\">",
+            vcf.get_dataset_name(),
+            vcf.tag_names.join(INFO_ANNOTATION_SEPARATOR)
+        );
+        header.push_record(header_row.as_bytes());
+    }
+
+    Writer::from_path(output, &header, uncompressed, Format::Vcf).unwrap()
+}
+
+pub fn format_output_record(
+    record: &Record,
+    annotated: AnnotatedVariant,
+    writer: &mut Writer,
+) -> Record {
+    let mut output_record = record.clone();
+    writer.translate(&mut output_record);
+    for (dataset_name, annot_record) in annotated.annotations {
+        let value_string = annot_record
+            .info_tag_values
+            .iter()
+            .map(|tag| match &tag.value {
+                TagValueType::Float(f) => f.to_string(),
+                TagValueType::Integer(i) => i.to_string(),
+                TagValueType::Str(s) => s.clone(),
+            })
+            .collect::<Vec<String>>()
+            .join(INFO_ANNOTATION_SEPARATOR);
+
+        output_record
+            .push_info_string(dataset_name.as_bytes(), &[value_string.as_bytes()])
+            .unwrap();
+    }
+
+    output_record
 }
