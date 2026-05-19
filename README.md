@@ -14,9 +14,16 @@ cargo install --path .
 raven --help
 ```
 
+Alternatively, you can build a Docker image with raven by running `docker build` in the root of the cloned project:
+```bash
+docker build -t raven:v0.2 .
+docker run --rm -it raven:v0.2 bash
+raven --help
+```
+
 If you are using a Linux environment, you can also download the binary directly from the release and copy it to a directory in $PATH:
 ```bash
-wget https://github.com/gabrielhim/raven/releases/download/v0.1.0/raven
+wget https://github.com/gabrielhim/raven/releases/download/v0.2.1/raven
 chmod +x raven
 cp raven /usr/local/bin/
 raven --help
