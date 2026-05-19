@@ -217,6 +217,8 @@ pub fn annotate_vcf(
                     OutputFormat::Vcf => {
                         let out_record = format_output_record(
                             &record,
+                            ref_allele,
+                            alt,
                             annotated_variant,
                             &mut output_vcf.as_mut().unwrap(),
                         );

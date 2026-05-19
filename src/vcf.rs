@@ -134,11 +134,18 @@ pub fn create_output_vcf(
 
 pub fn format_output_record(
     record: &Record,
+    ref_allele: &String,
+    alt_allele: &String,
     annotated: AnnotatedVariant,
     writer: &mut Writer,
 ) -> Record {
     let mut output_record = record.clone();
     writer.translate(&mut output_record);
+
+    output_record
+        .set_alleles(&[ref_allele.as_bytes(), alt_allele.as_bytes()])
+        .unwrap();
+
     for (dataset_name, annot_record) in annotated.annotations {
         let value_string = annot_record
             .info_tag_values
