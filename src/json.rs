@@ -21,19 +21,19 @@ pub fn format_variant_json(variant: &Variant, annotated: AnnotatedVariant) -> Va
             json!({"id": Value::String(annot_record.record_id), "tags": Value::Object(tags_map)}),
         );
     }
-    if let Some(_) = annotated.input_record {
-        dataset_map.insert(
-            String::from("record"),
-            Value::String(annotated.input_record.unwrap()),
-        );
-    };
-    json!({
+
+    let mut output_record = json!({
         "chrom": variant.chromosome,
         "pos": variant.position + 1,
         "ref": variant.ref_allele,
         "alt": variant.alt_allele,
         "annotations": dataset_map
-    })
+    });
+    if let Some(i) = annotated.input_record {
+        output_record["record"] = json!(i);
+    };
+
+    output_record
 }
 
 pub fn write_json_output(contents: &[Value], output: &Option<String>, append: bool) {
