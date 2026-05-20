@@ -97,8 +97,7 @@ pub fn annotate_vcf(
 
     let mut output_vcf = match output_format {
         OutputFormat::Vcf => {
-            let uncompressed = !output.ends_with(".gz");
-            let output_vcf = create_output_vcf(input_reader.header(), vcfs, &output, uncompressed);
+            let output_vcf = create_output_vcf(input_reader.header(), vcfs, &output);
             Some(output_vcf)
         }
         _ => None,
@@ -188,6 +187,8 @@ pub fn annotate_vcf(
                 }
             }
 
+            let mut alt_annotations: Vec<(Variant, AnnotatedVariant)> = Vec::new();
+
             for alt in &alleles[1..] {
                 let variant = Variant {
                     chromosome: chrom.clone(),
@@ -209,26 +210,41 @@ pub fn annotate_vcf(
                     annotations: annotation_records,
                 };
 
-                match output_format {
-                    OutputFormat::Json => {
+                alt_annotations.push((variant, annotated_variant));
+            }
+
+            match output_format {
+                OutputFormat::Json => {
+                    // For JSON output, multi-allelic variants are split, with each allele
+                    // in a diferent row.
+                    for (variant, annotated_variant) in alt_annotations {
                         let out_value = format_variant_json(&variant, annotated_variant);
                         annotated_json_out.push(out_value);
                     }
-                    OutputFormat::Vcf => {
-                        let out_record = format_output_record(
-                            &record,
-                            ref_allele,
-                            alt,
-                            annotated_variant,
-                            &mut output_vcf.as_mut().unwrap(),
-                        );
-                        output_vcf.as_mut().unwrap().write(&out_record).unwrap();
-                    }
-                };
-            }
+                }
+                OutputFormat::Vcf => {
+                    // For VCF output, raven preserves multi-allelic variants and keeps the
+                    // first annotation found.
+                    // WARNING: if other alternate alleles have different annotations, their
+                    // information will be skipped. To prevent that, make sure the input VCF
+                    // is decomposed.
+                    let last_annot = alt_annotations.last().unwrap().1.clone();
+                    let annotated_variant = alt_annotations
+                        .into_iter()
+                        .map(|(_, a)| a)
+                        .find(|a| !a.annotations.is_empty())
+                        .unwrap_or(last_annot);
+                    let out_record = format_output_record(
+                        &record,
+                        annotated_variant,
+                        &mut output_vcf.as_mut().unwrap(),
+                    );
+                    output_vcf.as_mut().unwrap().write(&out_record).unwrap();
+                }
+            };
         }
 
-        if annotated_json_out.len() > 0 {
+        if !annotated_json_out.is_empty() {
             write_json_output(&annotated_json_out, &output_file, append);
         }
         append = true;
