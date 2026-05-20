@@ -117,7 +117,6 @@ pub fn create_output_vcf(
     sample_header: &HeaderView,
     vcfs: &Vec<VcfDataset>,
     output: &String,
-    uncompressed: bool,
 ) -> Writer {
     let mut header = Header::from_template(sample_header);
     for vcf in vcfs {
@@ -129,22 +128,17 @@ pub fn create_output_vcf(
         header.push_record(header_row.as_bytes());
     }
 
+    let uncompressed = !output.ends_with(".gz");
     Writer::from_path(output, &header, uncompressed, Format::Vcf).unwrap()
 }
 
 pub fn format_output_record(
     record: &Record,
-    ref_allele: &String,
-    alt_allele: &String,
     annotated: AnnotatedVariant,
     writer: &mut Writer,
 ) -> Record {
     let mut output_record = record.clone();
     writer.translate(&mut output_record);
-
-    output_record
-        .set_alleles(&[ref_allele.as_bytes(), alt_allele.as_bytes()])
-        .unwrap();
 
     for (dataset_name, annot_record) in annotated.annotations {
         let value_string = annot_record

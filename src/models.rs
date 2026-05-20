@@ -30,7 +30,7 @@ pub struct AnnotationRecord {
     pub info_tag_values: Vec<InfoTagValue>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct AnnotatedVariant {
     pub input_record: Option<String>,
     pub annotations: Vec<(String, AnnotationRecord)>,
