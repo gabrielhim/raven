@@ -1,8 +1,18 @@
+use ryu;
 use serde_json::{self, Value, json};
 use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Write};
 
 use crate::models::{AnnotatedVariant, TagValueType, Variant};
+
+// Value::Number stores f32 as f64, which introduces decimal digits.
+// Using ryu to convert to &str and parsing it back gives the shortest
+// decimal, which is saved as f64 with the f32 precision.
+fn convert_f32(number: f32) -> Value {
+    let mut buffer = ryu::Buffer::new();
+    let s = buffer.format(number);
+    Value::Number(s.parse().unwrap())
+}
 
 pub fn format_variant_json(variant: &Variant, annotated: AnnotatedVariant) -> Value {
     let mut dataset_map = serde_json::Map::new();
@@ -10,7 +20,7 @@ pub fn format_variant_json(variant: &Variant, annotated: AnnotatedVariant) -> Va
         let mut tags_map = serde_json::Map::new();
         for tag_annot in annot_record.info_tag_values {
             let value = match &tag_annot.value {
-                TagValueType::Float(f) => json!(f),
+                TagValueType::Float(f) => convert_f32(*f),
                 TagValueType::Integer(i) => json!(i),
                 TagValueType::Str(s) => Value::String(s.clone()),
             };

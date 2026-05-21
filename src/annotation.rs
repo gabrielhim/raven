@@ -111,6 +111,7 @@ pub fn annotate_vcf(
     let chromosomes = extract_contigs(input_reader.header());
 
     let output_file = Some(output);
+    let records_count = input_reader.records().count();
     let mut append = false;
 
     for chrom in chromosomes {
@@ -249,4 +250,6 @@ pub fn annotate_vcf(
         }
         append = true;
     }
+
+    println!("Finished processing {} variants.", records_count);
 }
