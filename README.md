@@ -55,8 +55,8 @@ The output format is inferred by the output file extension. Two formats are curr
 
 Output is written to a file in JSON-lines format:
 ```json
-{"alt":"C","annotations":{"gnomad.exomes.r2.1.1.sites.20":{"id":"rs6111385","tags":{"AC":197171,"AF":0.7841730117797852,"AN":251438}}},"chrom":"20","pos":76962,"ref":"T"}
-{"alt":"A","annotations":{"clinvar_20":{"id":"402586","tags":{"ALLELEID":390451,"CLNHGVS":"NC_000020.10:g.126314_126315del","CLNREVSTAT":"criteria_provided,_single_submitter","CLNSIG":"Benign","GENEINFO":"DEFB126:81623"}},"gnomad.exomes.r2.1.1.sites.20":{"id":"rs111739970","tags":{"AC":137216,"AF":0.5522220134735107,"AN":248480}}},"chrom":"20","pos":126310,"ref":"ACC"}
+{"alt":"C","annotations":{"gnomad.exomes.r2.1.1.sites.20":{"id":"rs6111385","tags":{"AC":197171,"AF":0.784173,"AN":251438}}},"chrom":"20","pos":76962,"ref":"T"}
+{"alt":"A","annotations":{"clinvar_20":{"id":"402586","tags":{"ALLELEID":390451,"CLNHGVS":"NC_000020.10:g.126314_126315del","CLNREVSTAT":"criteria_provided,_single_submitter","CLNSIG":"Benign","GENEINFO":"DEFB126:81623"}},"gnomad.exomes.r2.1.1.sites.20":{"id":"rs111739970","tags":{"AC":137216,"AF":0.552222,"AN":248480}}},"chrom":"20","pos":126310,"ref":"ACC"}
 {"alt":"T","annotations":{},"chrom":"20","pos":138125,"ref":"G"}
 ```
 
